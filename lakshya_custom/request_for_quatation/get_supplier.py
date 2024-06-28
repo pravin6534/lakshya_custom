@@ -148,7 +148,6 @@ def get_print_as_base64(doctype, name,supplier_name, print_format=None):
 
     # Fetch document
     doc = frappe.get_doc(doctype, name)
-    doc.transaction_date = "12-06-2024"
     doc.vendor = supplier_name
     
     # Determine print format
