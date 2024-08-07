@@ -65,7 +65,7 @@ Dear Sir/Madam,
 
 Please submit your best possible rates for the items.
 
-***** Please specify your Terms and Conditions, including warranty, freight, and GST rates with HSN of items, in the notes section of the portal.*******
+***** Please specify your Terms and Conditions, including warranty, freight, and GST rates with HSN of items, in the notes section of the portal.*****
 The request for the quotation can be accessed by clicking on the following link and the attachment is also sent to your email.
 You can login with your registered email: {email}
 
