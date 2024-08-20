@@ -137,7 +137,7 @@ def get_receiver_phone_number(number):
 def get_pdf_for_supplier(doc, supplier_name):
     supplier_name=supplier_name
     try:
-        pdf_base64 = get_print_as_base64(doc.doctype, doc.name,supplier_name, print_format="Standard")
+        pdf_base64 = get_print_as_base64(doc.doctype, doc.name,supplier_name, print_format="Request for Quotation")
         return pdf_base64
     except Exception as e:
         frappe.log_error(message=str(e), title="Error in get_pdf_for_supplier")

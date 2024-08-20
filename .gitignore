@@ -7,3 +7,6 @@ node_modules
 __pycache__
 *.cpython-310.pyc
 lakshya_custom/__pycache__/__init__.cpython-310.pyc
+lakshya_custom/__pycache__/
+lakshya_custom/lakshya_custom/__pycache__/
+lakshya_custom/request_for_quatation/__pycache__/
