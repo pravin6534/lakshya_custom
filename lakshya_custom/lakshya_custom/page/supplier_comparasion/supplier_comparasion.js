@@ -82,29 +82,17 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             method: "lakshya_custom.lakshya_custom.get_quatation.quatation.get_item_wise_rate_comparison",
             args: { quotations },
             callback: function (r) {
-                console.log('API Response:', r.message);  // Log response to inspect data format
-
                 if (r.message) {
                     render_rate_comparison_table(r.message);
                 } else {
                     frappe.msgprint(__('No data available for the given quotations.'));
                 }
             },
-            error: function (err) {
-                console.error('Error fetching comparison data:', err);
-                frappe.msgprint(__('Failed to fetch data for comparison. Please try again.'));
-            }
         });
     });
 
-    // Render rate comparison table dynamically based on response format
+    // Rendering function for the table
     function render_rate_comparison_table(comparison) {
-        // Check if comparison object and necessary fields are present
-        if (!comparison || !Array.isArray(comparison.items) || !Array.isArray(comparison.suppliers)) {
-            frappe.msgprint(__('Invalid data format received. Missing items or suppliers.'));
-            return;
-        }
-
         let table_html = `
             <table class="table table-bordered">
                 <thead>
@@ -115,15 +103,37 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th>UOM</th>
         `;
 
-        // Create table headers dynamically for each supplier
+        // Add merged headers for each supplier's rate and amount columns
         comparison.suppliers.forEach(supplier => {
-            table_html += `<th>Rate (${supplier.supplier_name})</th><th>Amount (${supplier.supplier_name})</th>`;
+            table_html += `
+                <th colspan="2">${supplier.supplier_name}</th>
+            `;
         });
 
-        table_html += `</tr></thead><tbody>`;
+        table_html += `
+                    </tr>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+        `;
 
-        const totalAmounts = {};
+        // Add Rate and Amount headers for each supplier
+        comparison.suppliers.forEach(supplier => {
+            table_html += `
+                <th>Rate</th>
+                <th>Amount</th>
+            `;
+        });
 
+        table_html += `
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        let totalAmounts = {};
         comparison.items.forEach(item => {
             table_html += `
                 <tr>
@@ -133,24 +143,26 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                     <td>${item.uom}</td>
             `;
 
-            // For each supplier, show rate and amount dynamically
+            // Loop through each supplier and add the rate and amount
             comparison.suppliers.forEach(supplier => {
-                const rateField = `rate_${supplier.supplier_name.replace(' ', '')}`;  // Example: rate_SupplierA
-                const amountField = `amount_${supplier.supplier_name.replace(' ', '')}`;
-                const rate = item[rateField] || '-';
-                const amount = item[amountField] || '-';
-                
+                const rate = item[`rate_${supplier.supplier_name}`] || '-';
+                const amount = item[`amount_${supplier.supplier_name}`] || '-';
                 totalAmounts[supplier.supplier_name] = (totalAmounts[supplier.supplier_name] || 0) + (amount !== '-' ? parseFloat(amount) : 0);
-                table_html += `<td>${rate}</td><td>${amount}</td>`;
+                table_html += `
+                    <td>${rate}</td>
+                    <td>${amount}</td>
+                `;
             });
 
-            table_html += `</tr>`;
+            table_html += `
+                </tr>
+            `;
         });
 
         table_html += `</tbody></table>`;
         $('#comparison-table').html(table_html);
 
-        // Add total calculation row
+        // Render the totals row
         const totalsHtml = `
             <tr>
                 <td colspan="4"><strong>Total:</strong></td>
@@ -159,17 +171,19 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         `;
         $('#comparison-table tbody').append(totalsHtml);
 
+        // Render the terms comparison section
         render_terms_comparison(comparison);
     }
 
+    // Function to render Terms and Conditions comparison
     function render_terms_comparison(comparison) {
         let terms_html = `
             <h4>Terms and Conditions Comparison:</h4>
             <div class="row">
-                ${comparison.suppliers.map(supplier => `
+                ${comparison.suppliers.map(q => `
                     <div class="col-md-4">
-                        <h5>${supplier.supplier_name}</h5>
-                        <p>${supplier.terms || 'No terms available.'}</p>
+                        <h5>${q.supplier_name}</h5>
+                        <p>${q.terms || 'No terms available.'}</p>
                     </div>
                 `).join('')}
             </div>
