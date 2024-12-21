@@ -1,52 +1,72 @@
 import frappe
+import json
 
-@frappe.whitelist()
-def get_item_wise_rate_comparison(quotation1, quotation2, quotation3):
-    quotations = [quotation1, quotation2, quotation3]
-    comparison = {
-        "supplier1_name": "",
-        "supplier2_name": "",
-        "supplier3_name": "",
-        "supplier1_terms": "",
-        "supplier2_terms": "",
-        "supplier3_terms": "",
-        "items": []
-    }
+@frappe.whitelist(allow_guest=True)
+def get_item_wise_rate_comparison(quotations):
+    """
+    Fetch and compare item-wise rates and terms from selected quotations.
     
-    # Iterate through the quotations
-    for idx, doc in enumerate(quotations):
-        q_doc = frappe.get_doc("Supplier Quotation", doc)
-        supplier_name = q_doc.supplier
-        terms = q_doc.terms  # Updated to fetch the terms field
-        
-        if idx == 0:
-            comparison["supplier1_name"] = supplier_name
-            comparison["supplier1_terms"] = terms
-        elif idx == 1:
-            comparison["supplier2_name"] = supplier_name
-            comparison["supplier2_terms"] = terms
-        elif idx == 2:
-            comparison["supplier3_name"] = supplier_name
-            comparison["supplier3_terms"] = terms
-        
-        for item in q_doc.items:
-            existing = next((x for x in comparison["items"] if x["item_code"] == item.item_code), None)
-            if not existing:
-                comparison["items"].append({
-                    "item_code": item.item_code,
-                    "item_name": item.item_name,
-                    "qty": item.qty,
-                    "uom": item.uom,
-                    "rate_quotation1": item.rate if idx == 0 else None,
-                    "rate_quotation2": item.rate if idx == 1 else None,
-                    "rate_quotation3": item.rate if idx == 2 else None
-                })
-            else:
-                if idx == 0:
-                    existing["rate_quotation1"] = item.rate
-                elif idx == 1:
-                    existing["rate_quotation2"] = item.rate
-                elif idx == 2:
-                    existing["rate_quotation3"] = item.rate
+    Args:
+        quotations (str): JSON stringified list of quotation IDs.
 
-    return comparison
+    Returns:
+        dict: A comparison dictionary with supplier names, terms, and item rates.
+    """
+    try:
+        # Parse quotations argument from stringified JSON to Python list
+        quotation_ids = json.loads(quotations)
+        
+        if not quotation_ids or len(quotation_ids) < 2:
+            frappe.throw("Please select at least two quotations for comparison.")
+        
+        comparison = {
+            "suppliers": [],
+            "items": []
+        }
+        
+        for idx, quotation_id in enumerate(quotation_ids):
+            try:
+                q_doc = frappe.get_doc("Supplier Quotation", quotation_id)
+                comparison["suppliers"].append({
+                    "supplier_name": q_doc.supplier,
+                    "terms": q_doc.terms or "No terms available."
+                })
+                
+                for item in q_doc.items:
+                    existing = next((x for x in comparison["items"] if x["item_code"] == item.item_code), None)
+                    rate_field = f"rate_quotation{idx + 1}"
+                    
+                    if not existing:
+                        item_data = {
+                            "item_code": item.item_code,
+                            "item_name": item.item_name,
+                            "qty": item.qty,
+                            "uom": item.uom,
+                        }
+                        for i in range(len(quotation_ids)):
+                            item_data[f"rate_quotation{i + 1}"] = None
+                        item_data[rate_field] = item.rate
+                        
+                        comparison["items"].append(item_data)
+                    else:
+                        existing[rate_field] = item.rate
+            
+            except frappe.DoesNotExistError:
+                frappe.msgprint(f"Quotation '{quotation_id}' does not exist.")
+            except Exception as e:
+                frappe.log_error(f"Error processing quotation {quotation_id}: {e}")
+                continue
+        
+        for item in comparison["items"]:
+            for i in range(len(quotation_ids)):
+                rate_field = f"rate_quotation{i + 1}"
+                if rate_field not in item:
+                    item[rate_field] = None
+        
+        return comparison
+    
+    except json.JSONDecodeError:
+        frappe.throw("Invalid quotations format. Please provide a valid JSON stringified list of quotations.")
+    except Exception as e:
+        frappe.log_error(f"Error in get_item_wise_rate_comparison: {e}")
+        frappe.throw("An unexpected error occurred while processing the quotations.")
