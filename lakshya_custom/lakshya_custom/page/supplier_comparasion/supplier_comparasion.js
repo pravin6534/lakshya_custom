@@ -106,8 +106,16 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
 
         // Add merged headers for each supplier's rate and amount columns dynamically
         comparison.suppliers.forEach(supplier => {
+            // Truncate or pad supplier names to be 12 characters from the left
+            let supplierName = supplier.supplier_name;
+            if (supplierName.length > 12) {
+                supplierName = supplierName.substring(0, 12); // Truncate if longer than 12 characters
+            } else if (supplierName.length < 12) {
+                supplierName = supplierName.padEnd(12, ' '); // Pad with spaces if shorter than 12 characters
+            }
+
             table_html += `
-                <th colspan="2">${supplier.supplier_name}</th>
+                <th colspan="2">${supplierName}</th>
             `;
         });
 
@@ -121,7 +129,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         `;
 
         // Add Rate and Amount headers for each supplier dynamically
-        comparison.suppliers.forEach(supplier => {
+        comparison.suppliers.forEach(() => {
             table_html += `
                 <th>Rate</th>
                 <th>Amount</th>
