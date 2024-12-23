@@ -23,7 +23,6 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
 
     let quotationCounter = 0;
 
-    // Function to add a quotation selector
     function addQuotationSelector() {
         quotationCounter++;
         const selectorHtml = `
@@ -47,15 +46,10 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         });
     }
 
-    // Initial two quotation selectors
     addQuotationSelector();
     addQuotationSelector();
 
-    // Add and Remove button logic
-    $('#add-quotation').on('click', function () {
-        addQuotationSelector();
-    });
-
+    $('#add-quotation').on('click', addQuotationSelector);
     $('#remove-quotation').on('click', function () {
         if (quotationCounter > 1) {
             $(`#quotation-group-${quotationCounter}`).remove();
@@ -65,7 +59,6 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         }
     });
 
-    // Compare button logic
     $('#compare').on('click', function () {
         const quotations = [];
         $('.quotation-group').each(function () {
@@ -83,7 +76,6 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             args: { quotations },
             callback: function (r) {
                 if (r.message) {
-                    console.log('API Response:', r.message);
                     render_rate_comparison_table(r.message);
                 } else {
                     frappe.msgprint(__('No data available for the given quotations.'));
@@ -92,8 +84,6 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         });
     });
 
-
-    
     function render_rate_comparison_table(comparison) {
         let table_html = `
             <table class="table table-bordered">
@@ -104,18 +94,15 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th>Qty</th>
                         <th>UOM</th>
         `;
-        // comparison.suppliers.forEach(supplier => {
-        //     table_html += `<th colspan="3">${supplier.supplier_name}</th>`;
-        // });
+
         comparison.suppliers.forEach(supplier => {
             let supplier_name = supplier.supplier_name;
             if (supplier_name.length > 12) {
-                supplier_name = supplier_name.substring(0, 12) + '...';  // Truncate name if it exceeds 12 characters
+                supplier_name = supplier_name.substring(0, 12) + '...';
             }
-            table_html += `
-                <th colspan="3">${supplier_name}</th>
-            `;
+            table_html += `<th colspan="3">${supplier_name}</th>`;
         });
+
         table_html += `
                     </tr>
                     <tr>
@@ -124,12 +111,15 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th></th>
                         <th></th>
         `;
+
         comparison.suppliers.forEach(() => {
             table_html += `<th>Description</th><th>Rate</th><th>Amount</th>`;
         });
+
         table_html += `</tr></thead><tbody>`;
 
         const totalAmounts = {};
+
         comparison.items.forEach(item => {
             table_html += `<tr><td>${item.item_code}</td><td>${item.last_purchase_rate || ''}</td><td>${item.qty}</td><td>${item.uom}</td>`;
 
@@ -156,18 +146,29 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
 
         table_html += `<tr><td colspan="4"><strong>Total:</strong></td>`;
         comparison.suppliers.forEach(supplier => {
-            table_html += `<td colspan="3"><strong>${(totalAmounts[supplier.supplier_name] || 0).toFixed(2)}</strong></td>`;
+            table_html += `<td colspan="3" style="text-align: right;"><strong>${(totalAmounts[supplier.supplier_name] || 0).toFixed(2)}</strong></td>`;
         });
-        table_html += `</tr></tbody></table>`;
+
+        table_html += `</tr>`;
+
+        // Adding the Terms row below totals
+        table_html += `<tr><td colspan="4"><strong>Terms:</strong></td>`;
+        comparison.suppliers.forEach(supplier => {
+            const terms = supplier.terms || 'No terms available';
+            table_html += `<td colspan="3">${terms}</td>`;
+        });
+        table_html += `</tr>`;
+
+        table_html += `</tbody></table>`;
 
         $('#comparison-table').html(table_html);
         render_supplier_summary(totalAmounts);
     }
 
-    // function render_supplier_summary(totalAmounts) {
-    //     const summaryHtml = Object.keys(totalAmounts).map(supplierName => `
-    //         <div><strong>${supplierName}:</strong> ${totalAmounts[supplierName].toFixed(2)}</div>
-    //     `).join('');
-    //     $('#supplier-summary').html(`<h4>Supplier Summary:</h4>${summaryHtml}`);
-    // }
+    function render_supplier_summary(totalAmounts) {
+        const summaryHtml = Object.keys(totalAmounts).map(supplierName => `
+            <div><strong>${supplierName}:</strong> ${totalAmounts[supplierName].toFixed(2)}</div>
+        `).join('');
+        $('#supplier-summary').html(`<h4>Supplier Summary:</h4>${summaryHtml}`);
+    }
 };
