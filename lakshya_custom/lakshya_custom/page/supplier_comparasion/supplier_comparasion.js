@@ -5,7 +5,6 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         single_column: true
     });
 
-    // HTML structure
     $(page.body).html(`
         <div class="form-inline">
             <div id="quotation-selectors" class="form-group">
@@ -16,6 +15,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             <button class="btn btn-primary" id="compare" style="margin-left: 10px;">Compare</button>
         </div>
         <br>
+        <div id="supplier-summary"></div>
         <div id="comparison-table"></div>
         <br>
         <div id="terms-comparison" style="margin-top: 20px;"></div>
@@ -83,7 +83,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             args: { quotations },
             callback: function (r) {
                 if (r.message) {
-                    console.log('API Response:', r.message);  // Log the API response to verify data structure
+                    console.log('API Response:', r.message);
                     render_rate_comparison_table(r.message);
                 } else {
                     frappe.msgprint(__('No data available for the given quotations.'));
@@ -92,33 +92,30 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         });
     });
 
-    // Rendering function for the table
+
+    
     function render_rate_comparison_table(comparison) {
         let table_html = `
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>Item Code</th>
-                        <th>Item Name</th>
-                        <th>Quantity</th>
+                        <th>Item</th>
+                        <th>Last Rate</th>
+                        <th>Qty</th>
                         <th>UOM</th>
         `;
-
-        // Add merged headers for each supplier's rate and amount columns dynamically
+        // comparison.suppliers.forEach(supplier => {
+        //     table_html += `<th colspan="3">${supplier.supplier_name}</th>`;
+        // });
         comparison.suppliers.forEach(supplier => {
-            // Truncate or pad supplier names to be 12 characters from the left
-            let supplierName = supplier.supplier_name;
-            if (supplierName.length > 12) {
-                supplierName = supplierName.substring(0, 12); // Truncate if longer than 12 characters
-            } else if (supplierName.length < 12) {
-                supplierName = supplierName.padEnd(12, ' '); // Pad with spaces if shorter than 12 characters
+            let supplier_name = supplier.supplier_name;
+            if (supplier_name.length > 12) {
+                supplier_name = supplier_name.substring(0, 12) + '...';  // Truncate name if it exceeds 12 characters
             }
-
             table_html += `
-                <th colspan="2">${supplierName}</th>
+                <th colspan="3">${supplier_name}</th>
             `;
         });
-
         table_html += `
                     </tr>
                     <tr>
@@ -127,94 +124,50 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th></th>
                         <th></th>
         `;
-
-        // Add Rate and Amount headers for each supplier dynamically
         comparison.suppliers.forEach(() => {
-            table_html += `
-                <th>Rate</th>
-                <th>Amount</th>
-            `;
+            table_html += `<th>Description</th><th>Rate</th><th>Amount</th>`;
         });
+        table_html += `</tr></thead><tbody>`;
 
-        table_html += `
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        let totalAmounts = {}; // Store total amount separately for each supplier
+        const totalAmounts = {};
         comparison.items.forEach(item => {
-            table_html += `
-                <tr>
-                    <td>${item.item_code}</td>
-                    <td>${item.item_name}</td>
-                    <td>${item.qty}</td>
-                    <td>${item.uom}</td>
-            `;
+            table_html += `<tr><td>${item.item_code}</td><td>${item.last_purchase_rate || ''}</td><td>${item.qty}</td><td>${item.uom}</td>`;
 
-            // Loop through each supplier to calculate the rate and amount
+            let minRate = Infinity;
+            let minRateIndex = -1;
+
             comparison.suppliers.forEach((supplier, idx) => {
-                let rate = 0;  // Initialize to 0 in case rate is missing
-                let amount = 0; // Initialize to 0 in case amount calculation fails
+                const rate = item[`rate_quotation${idx + 1}`] || 0;
+                const amount = rate > 0 ? rate * item.qty : 0;
+                const description = item[`description_quotation${idx + 1}`] || 'No Description';
 
-                // Dynamically get rate and amount based on the supplier index
-                rate = item[`rate_quotation${idx + 1}`] || 0;
-                amount = rate !== 0 ? (rate * item.qty).toFixed(2) : 0;
-
-                // Update total amounts for each supplier separately
-                if (amount !== 0) {
-                    if (!totalAmounts[supplier.supplier_name]) {
-                        totalAmounts[supplier.supplier_name] = 0;
-                    }
-                    totalAmounts[supplier.supplier_name] += parseFloat(amount);
+                if (rate > 0 && rate < minRate) {
+                    minRate = rate;
+                    minRateIndex = idx;
                 }
 
-                table_html += `
-                    <td>${rate > 0 ? rate : ''}</td>
-                    <td>${amount > 0 ? amount : ''}</td>
-                `;
+                totalAmounts[supplier.supplier_name] = (totalAmounts[supplier.supplier_name] || 0) + amount;
+
+                table_html += `<td>${description}</td><td${idx === minRateIndex ? ' style="background-color:#d4edda;"' : ''}>${rate > 0 ? rate : ''}</td><td>${amount > 0 ? amount : ''}</td>`;
             });
 
-            table_html += `
-                </tr>
-            `;
+            table_html += `</tr>`;
         });
 
-        table_html += `</tbody></table>`;
-        $('#comparison-table').html(table_html);
-
-        // Render the totals row (sum per supplier)
-        let totalsHtml = `
-            <tr>
-                <td colspan="4"><strong>Total:</strong></td>
-        `;
-        
-        // Add total amounts for each supplier
+        table_html += `<tr><td colspan="4"><strong>Total:</strong></td>`;
         comparison.suppliers.forEach(supplier => {
-            const total = totalAmounts[supplier.supplier_name] || 0;
-            totalsHtml += `<td colspan="2"><strong>${total.toFixed(2)}</strong></td>`;
+            table_html += `<td colspan="3"><strong>${(totalAmounts[supplier.supplier_name] || 0).toFixed(2)}</strong></td>`;
         });
+        table_html += `</tr></tbody></table>`;
 
-        totalsHtml += `</tr>`;
-        $('#comparison-table tbody').append(totalsHtml);
-
-        // Render the terms comparison section
-        render_terms_comparison(comparison);
+        $('#comparison-table').html(table_html);
+        render_supplier_summary(totalAmounts);
     }
 
-    // Function to render Terms and Conditions comparison
-    function render_terms_comparison(comparison) {
-        let terms_html = `
-            <h4>Terms and Conditions Comparison:</h4>
-            <div class="row">
-                ${comparison.suppliers.map(q => `
-                    <div class="col-md-4">
-                        <h5>${q.supplier_name}</h5>
-                        <p>${q.terms || 'No terms available.'}</p>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        $('#terms-comparison').html(terms_html);
-    }
+    // function render_supplier_summary(totalAmounts) {
+    //     const summaryHtml = Object.keys(totalAmounts).map(supplierName => `
+    //         <div><strong>${supplierName}:</strong> ${totalAmounts[supplierName].toFixed(2)}</div>
+    //     `).join('');
+    //     $('#supplier-summary').html(`<h4>Supplier Summary:</h4>${summaryHtml}`);
+    // }
 };
