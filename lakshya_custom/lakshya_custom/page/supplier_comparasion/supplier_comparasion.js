@@ -83,6 +83,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             args: { quotations },
             callback: function (r) {
                 if (r.message) {
+                    console.log('API Response:', r.message);  // Log the API response to verify data structure
                     render_rate_comparison_table(r.message);
                 } else {
                     frappe.msgprint(__('No data available for the given quotations.'));
@@ -103,7 +104,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th>UOM</th>
         `;
 
-        // Add merged headers for each supplier's rate and amount columns
+        // Add merged headers for each supplier's rate and amount columns dynamically
         comparison.suppliers.forEach(supplier => {
             table_html += `
                 <th colspan="2">${supplier.supplier_name}</th>
@@ -119,7 +120,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                         <th></th>
         `;
 
-        // Add Rate and Amount headers for each supplier
+        // Add Rate and Amount headers for each supplier dynamically
         comparison.suppliers.forEach(supplier => {
             table_html += `
                 <th>Rate</th>
@@ -133,7 +134,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                 <tbody>
         `;
 
-        let totalAmounts = {};
+        let totalAmounts = {}; // Store total amount separately for each supplier
         comparison.items.forEach(item => {
             table_html += `
                 <tr>
@@ -143,14 +144,26 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
                     <td>${item.uom}</td>
             `;
 
-            // Loop through each supplier and add the rate and amount
-            comparison.suppliers.forEach(supplier => {
-                const rate = item[`rate_${supplier.supplier_name}`] || '-';
-                const amount = item[`amount_${supplier.supplier_name}`] || '-';
-                totalAmounts[supplier.supplier_name] = (totalAmounts[supplier.supplier_name] || 0) + (amount !== '-' ? parseFloat(amount) : 0);
+            // Loop through each supplier to calculate the rate and amount
+            comparison.suppliers.forEach((supplier, idx) => {
+                let rate = 0;  // Initialize to 0 in case rate is missing
+                let amount = 0; // Initialize to 0 in case amount calculation fails
+
+                // Dynamically get rate and amount based on the supplier index
+                rate = item[`rate_quotation${idx + 1}`] || 0;
+                amount = rate !== 0 ? (rate * item.qty).toFixed(2) : 0;
+
+                // Update total amounts for each supplier separately
+                if (amount !== 0) {
+                    if (!totalAmounts[supplier.supplier_name]) {
+                        totalAmounts[supplier.supplier_name] = 0;
+                    }
+                    totalAmounts[supplier.supplier_name] += parseFloat(amount);
+                }
+
                 table_html += `
-                    <td>${rate}</td>
-                    <td>${amount}</td>
+                    <td>${rate > 0 ? rate : ''}</td>
+                    <td>${amount > 0 ? amount : ''}</td>
                 `;
             });
 
@@ -162,13 +175,19 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         table_html += `</tbody></table>`;
         $('#comparison-table').html(table_html);
 
-        // Render the totals row
-        const totalsHtml = `
+        // Render the totals row (sum per supplier)
+        let totalsHtml = `
             <tr>
                 <td colspan="4"><strong>Total:</strong></td>
-                ${Object.entries(totalAmounts).map(([supplier, total]) => `<td></td><td><strong>${total.toFixed(2)}</strong></td>`).join('')}
-            </tr>
         `;
+        
+        // Add total amounts for each supplier
+        comparison.suppliers.forEach(supplier => {
+            const total = totalAmounts[supplier.supplier_name] || 0;
+            totalsHtml += `<td colspan="2"><strong>${total.toFixed(2)}</strong></td>`;
+        });
+
+        totalsHtml += `</tr>`;
         $('#comparison-table tbody').append(totalsHtml);
 
         // Render the terms comparison section
