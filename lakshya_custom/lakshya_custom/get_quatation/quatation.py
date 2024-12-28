@@ -1,5 +1,10 @@
 import frappe
 import json
+import frappe
+from frappe.utils import get_html_format
+from frappe.core.doctype.data_import.data_import import DataImport
+from frappe import _
+from frappe.utils.pdf import get_pdf
 
 @frappe.whitelist(allow_guest=True)
 def get_item_wise_rate_comparison(quotations):
@@ -98,3 +103,116 @@ def get_item_wise_rate_comparison(quotations):
     except Exception as e:
         frappe.log_error(f"Error in get_item_wise_rate_comparison: {e}")
         frappe.throw("An unexpected error occurred while processing the quotations.")
+
+
+
+
+@frappe.whitelist(allow_guest=True)
+def generate_pdf_for_comparison(comparison_data):
+    comparison= get_item_wise_rate_comparison(comparison_data)
+    pdf_r=generate_comparison_pdf(comparison)
+    return pdf_r
+
+
+def generate_comparison_pdf(data):
+    # This function takes dynamic data and creates a PDF document.
+    
+    # Define the HTML content structure
+    html = get_html_format({
+        "message": {
+            "suppliers": data.get('message', {}).get('suppliers', []),
+            "items": data.get('message', {}).get('items', []),
+        }
+    })
+    
+    # Add custom PDF settings to adjust page orientation, margins, etc.
+    pdf_options = {
+        "page_size": "A4",  # You can change the page size as needed
+        "orientation": "landscape",  # Landscape mode
+        "no_split": True,  # Auto-adjustment of content without splitting
+        "header": "<h3>Quotation Comparison</h3>",  # Header for the document
+        "footer": "",  # Footer space for page numbering or text (optional)
+    }
+
+    # Call frappe's built-in 'get_pdf' function to generate the PDF
+    pdf_response = frappe.get_pdf(html, options=pdf_options)
+
+    return pdf_response
+
+
+def get_html_format(data):
+    """Generates the HTML format for the PDF."""
+
+    suppliers_html = ""
+    items_html = ""
+    
+    # Loop through suppliers and items to generate dynamic HTML content
+    for supplier in data['message']['suppliers']:
+        suppliers_html += f"""
+            <div><strong>Supplier Name:</strong> {supplier['supplier_name']}</div>
+            <div><strong>Terms:</strong> {supplier['terms']}</div>
+            <br>
+        """
+    
+    for item in data['message']['items']:
+        items_html += f"""
+            <table border="1" cellspacing="0" cellpadding="5">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Qty</th>
+                    <th>UOM</th>
+                    <th>Last Purchase Rate</th>
+                    <th>Rate (Quotation 1)</th>
+                    <th>Description (Quotation 1)</th>
+                    <th>Rate (Quotation 2)</th>
+                    <th>Description (Quotation 2)</th>
+                </tr>
+                <tr>
+                    <td>{item['item_code']}</td>
+                    <td>{item['item_name']}</td>
+                    <td>{item['qty']}</td>
+                    <td>{item['uom']}</td>
+                    <td>{item['last_purchase_rate'] if item['last_purchase_rate'] else 'N/A'}</td>
+                    <td>{item['rate_quotation1']}</td>
+                    <td>{item['description_quotation1']}</td>
+                    <td>{item['rate_quotation2']}</td>
+                    <td>{item['description_quotation2']}</td>
+                </tr>
+            </table>
+            <br><br>
+        """
+    
+    # Complete HTML structure
+    return f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+            }}
+            th, td {{
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+            }}
+            th {{
+                background-color: #f2f2f2;
+            }}
+        </style>
+    </head>
+    <body>
+        <h2>Quotation Comparison Report</h2>
+        <p><strong>Suppliers:</strong></p>
+        {suppliers_html}
+        <p><strong>Items:</strong></p>
+        {items_html}
+    </body>
+    </html>
+    """

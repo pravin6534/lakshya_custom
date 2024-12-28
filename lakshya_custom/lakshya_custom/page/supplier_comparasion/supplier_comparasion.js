@@ -23,6 +23,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
 
     let quotationCounter = 0;
 
+    // Add the quotation selector
     function addQuotationSelector() {
         quotationCounter++;
         const selectorHtml = `
@@ -32,6 +33,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             </div>
         `;
         $('#quotation-selectors').append(selectorHtml);
+
         new frappe.ui.form.ControlLink({
             parent: $(`#quotation${quotationCounter}-link`),
             df: {
@@ -46,10 +48,14 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         });
     }
 
+    // Initialize with 2 quotation selectors
     addQuotationSelector();
     addQuotationSelector();
 
+    // Add quotation button handler
     $('#add-quotation').on('click', addQuotationSelector);
+
+    // Remove quotation button handler
     $('#remove-quotation').on('click', function () {
         if (quotationCounter > 1) {
             $(`#quotation-group-${quotationCounter}`).remove();
@@ -59,6 +65,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         }
     });
 
+    // Compare button click handler
     $('#compare').on('click', function () {
         const quotations = [];
         $('.quotation-group').each(function () {
@@ -84,10 +91,11 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         });
     });
 
+    // Render the rate comparison table
     function render_rate_comparison_table(comparison) {
         let table_html = `
-            <table class="table table-bordered">
-                <thead>
+            <table class="table table-bordered" style="border-collapse: collapse; width: 100%; margin-top: 20px;">
+                <thead style="background-color: #f7f7f7;">
                     <tr>
                         <th>Item</th>
                         <th>Last Rate</th>
@@ -103,9 +111,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             table_html += `<th colspan="3">${supplier_name}</th>`;
         });
 
-        table_html += `
-                    </tr>
-                    <tr>
+        table_html += `</tr><tr>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -121,7 +127,7 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         const totalAmounts = {};
 
         comparison.items.forEach(item => {
-            table_html += `<tr><td>${item.item_code}</td><td>${item.last_purchase_rate || ''}</td><td>${item.qty}</td><td>${item.uom}</td>`;
+            table_html += `<tr style="text-align: center;"><td>${item.item_code}</td><td>${item.last_purchase_rate || ''}</td><td>${item.qty}</td><td>${item.uom}</td>`;
 
             let minRate = Infinity;
             let minRateIndex = -1;
@@ -144,15 +150,15 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
             table_html += `</tr>`;
         });
 
-        table_html += `<tr><td colspan="4"><strong>Total:</strong></td>`;
+        table_html += `<tr style="background-color: #f7f7f7; text-align: right;"><td colspan="4"><strong>Total:</strong></td>`;
         comparison.suppliers.forEach(supplier => {
-            table_html += `<td colspan="3" style="text-align: right;"><strong>${(totalAmounts[supplier.supplier_name] || 0).toFixed(2)}</strong></td>`;
+            table_html += `<td colspan="3"><strong>${(totalAmounts[supplier.supplier_name] || 0).toFixed(2)}</strong></td>`;
         });
 
         table_html += `</tr>`;
 
         // Adding the Terms row below totals
-        table_html += `<tr><td colspan="4"><strong>Terms:</strong></td>`;
+        table_html += `<tr style="background-color: #f7f7f7;"><td colspan="4"><strong>Terms:</strong></td>`;
         comparison.suppliers.forEach(supplier => {
             const terms = supplier.terms || 'No terms available';
             table_html += `<td colspan="3">${terms}</td>`;
@@ -165,10 +171,54 @@ frappe.pages['supplier-comparasion'].on_page_load = function (wrapper) {
         render_supplier_summary(totalAmounts);
     }
 
+    // Render supplier summary
     function render_supplier_summary(totalAmounts) {
-        const summaryHtml = Object.keys(totalAmounts).map(supplierName => `
-            <div><strong>${supplierName}:</strong> ${totalAmounts[supplierName].toFixed(2)}</div>
-        `).join('');
-        $('#supplier-summary').html(`<h4>Supplier Summary:</h4>${summaryHtml}`);
+        let summaryHtml = `<table class="table table-bordered"><thead><tr><th>Supplier</th><th>Total Amount</th></tr></thead><tbody>`;
+        Object.keys(totalAmounts).forEach(supplier => {
+            summaryHtml += `<tr><td>${supplier}</td><td>${totalAmounts[supplier].toFixed(2)}</td></tr>`;
+        });
+        summaryHtml += `</tbody></table>`;
+        $('#supplier-summary').html(summaryHtml);
     }
+
+    // Download PDF button handler
+    $(page.body).append(`
+        <button class="btn btn-info" id="download-pdf" style="margin-top: 20px;">Download PDF</button>
+    `);
+
+    $('#download-pdf').on('click', function() {
+        const quotations = [];
+        $('.quotation-group').each(function () {
+            const quotationId = $(this).find('input').val();
+            if (quotationId) quotations.push(quotationId);
+        });
+
+        if (quotations.length < 2) {
+            frappe.msgprint(__('Please select at least two quotations.'));
+            return;
+        }
+        console.log("Quotations data before Frappe call:", quotations);
+        frappe.call({
+            method: "lakshya_custom.lakshya_custom.get_quatation.quatation.generate_pdf_for_comparison",
+            args: {
+                comparison_data: quotations
+            },
+            callback: function(r) {
+                // Console the data being passed to the method
+                console.log("Comparison Data Sent to Server:", quotations);
+                
+                if (r.message) {
+                    const blob = new Blob([r.message], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'Supplier_Comparison.pdf';
+                    link.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    frappe.msgprint(__('Unable to generate PDF.'));
+                }
+            }
+        });
+    });
 };
