@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-02-07 15:10:07.038959",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_w7nt",
+  "employee_code",
+  "log_datetime",
+  "log_date",
+  "log_time",
+  "direction"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_w7nt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "employee_code",
+   "fieldtype": "Data",
+   "label": "Employee Code"
+  },
+  {
+   "fieldname": "log_datetime",
+   "fieldtype": "Datetime",
+   "label": "Log DateTime"
+  },
+  {
+   "fieldname": "log_date",
+   "fieldtype": "Date",
+   "label": "Log Date"
+  },
+  {
+   "fieldname": "log_time",
+   "fieldtype": "Time",
+   "label": "Log Time"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "in\nout"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-02-07 15:15:25.727400",
+ "modified_by": "Administrator",
+ "module": "Lakshya_custom",
+ "name": "Essl Attendance Logs",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
