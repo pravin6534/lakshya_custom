@@ -2,7 +2,8 @@ import frappe
 
 def execute(filters=None):
     """
-    Generate a pivot-style report to compare multiple supplier quotations with merged headers.
+    Generate a pivot-style report to compare multiple supplier quotations with 
+    merged headers and include item last purchase rate.
 
     Args:
         filters (dict): Filters passed from the report UI.
@@ -32,13 +33,18 @@ def execute(filters=None):
             sq.supplier AS supplier,
             sqi.rate AS rate,
             sqi.qty AS qty,
-            (sqi.rate * sqi.qty) AS amount
+            (sqi.rate * sqi.qty) AS amount,
+            i.last_purchase_rate AS last_purchase_rate  -- Fetch last purchase rate from Item Doctype
         FROM
             `tabSupplier Quotation` sq
         INNER JOIN
             `tabSupplier Quotation Item` sqi
         ON
             sq.name = sqi.parent
+        LEFT JOIN
+            `tabItem` i
+        ON
+            sqi.item_code = i.item_code
         WHERE
             sq.name IN (%s)
         ORDER BY
@@ -53,7 +59,7 @@ def execute(filters=None):
     grand_totals = {}
 
     for row in supplier_data:
-        item_key = (row["item_name"], row["description"])  # Use a tuple of item name and description as the row key
+        item_key = (row["item_name"], row["description"], row["last_purchase_rate"])  # Include last purchase rate in the key
         supplier = row["supplier"]
 
         # Abbreviate supplier name or use short form (e.g., initials)
@@ -80,7 +86,8 @@ def execute(filters=None):
     # Prepare dynamic columns in pivot format (Rate, Qty, Amount under each supplier)
     columns = [
         {"label": "Item Name", "fieldname": "item_name", "fieldtype": "Data", "width": 200},
-        {"label": "Description", "fieldname": "description", "fieldtype": "Data", "width": 300},  # Add description column
+        {"label": "Description", "fieldname": "description", "fieldtype": "Data", "width": 300},
+        {"label": "Last Purchase Rate", "fieldname": "last_purchase_rate", "fieldtype": "Currency", "width": 150},  # Add Last Purchase Rate column
     ]
     for supplier in sorted(suppliers):  # Dynamically add Rate, Qty, Amount for each supplier
         columns.extend([
@@ -91,10 +98,11 @@ def execute(filters=None):
 
     # Prepare data rows for the pivot
     data = []
-    for (item_name, description), supplier_values in pivot_data.items():
+    for (item_name, description, last_purchase_rate), supplier_values in pivot_data.items():
         row = {
             "item_name": item_name,
-            "description": description  # Include item description in the row
+            "description": description,
+            "last_purchase_rate": last_purchase_rate  # Include last purchase rate in the row
         }
         for supplier in suppliers:
             if supplier in supplier_values:  # If the supplier provided a quote for the item
@@ -110,7 +118,7 @@ def execute(filters=None):
         data.append(row)
 
     # Add a grand total row at the end
-    grand_total_row = {"item_name": "Grand Total", "description": ""}
+    grand_total_row = {"item_name": "Grand Total", "description": "", "last_purchase_rate": ""}
     for supplier in suppliers:
         grand_total_row[f"{supplier}_rate"] = None  # No rate for the total row
         grand_total_row[f"{supplier}_qty"] = None   # No qty for the total row

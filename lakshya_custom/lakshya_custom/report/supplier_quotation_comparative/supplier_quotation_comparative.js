@@ -2,6 +2,7 @@
 // For license information, please see license.txt
 // File location: <your_app>/your_module/report/supplier_quotation_comparison/supplier_quotation_comparison.js
 
+
 frappe.query_reports["Supplier Quotation Comparative"] = {
     "filters": [
         {
@@ -9,7 +10,7 @@ frappe.query_reports["Supplier Quotation Comparative"] = {
             "label": "Supplier Quotations",
             "fieldtype": "MultiSelectList",
             "options": "Supplier Quotation",
-            "get_data": function(txt) {
+            "get_data": function (txt) {
                 return frappe.db.get_link_options("Supplier Quotation", txt);
             },
             "reqd": 1
@@ -17,33 +18,29 @@ frappe.query_reports["Supplier Quotation Comparative"] = {
     ],
 
     // Add the formatter function for conditional formatting
-    "formatter": function(value, row, column, data, default_formatter) {
+    "formatter": function (value, row, column, data, default_formatter) {
         // Use default formatter to style the cell
         value = default_formatter(value, row, column, data);
 
-        // Style the "Grand Total" row
-        if (data && data.item_name === "Grand Total") {
-            value = `<span style="
-                font-weight: bold; 
-                color: black;">
-                ${value}
-            </span>`;
+        // Exclude Last Purchase Rate column from being highlighted
+        if (column.fieldname === "last_purchase_rate") {
+            return value; // Do nothing for this column
         }
 
-        // Check if the column is a rate column
+        // Check if the column is a supplier rate column (ends with '_rate')
         if (column.fieldname.endsWith("_rate")) {
-            // Extract all rates for the current row (item)
+            // Extract all supplier rates for the current row (exclude nulls)
             let rates = [];
             Object.keys(data).forEach((key) => {
-                if (key.endsWith("_rate") && data[key] !== null) {
+                if (key.endsWith("_rate") && key !== "last_purchase_rate" && data[key] !== null) {
                     rates.push(data[key]);
                 }
             });
 
-            // Find the lowest rate in the row
+            // Find the lowest rate among supplier rates
             let lowest_rate = Math.min(...rates);
 
-            // If the current value is the lowest rate, apply green highlight with visible white text
+            // If the current value matches the lowest rate, apply green highlight
             if (data[column.fieldname] === lowest_rate) {
                 value = `<span style="
                     background-color: green; 
